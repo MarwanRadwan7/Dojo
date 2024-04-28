@@ -51,9 +51,12 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 	p.nextToken()
 
+	// Register prefix parse functions
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
+	p.registerPrefix(token.BANG, p.parsePrefixExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 
 	return p
 }
@@ -108,12 +111,18 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 }
 
+func (p *Parser) noPrefixParseFnError(t token.TokenType) {
+	msg := fmt.Sprintf("no prefix parse function for %s found", t)
+	p.errors = append(p.errors, msg)
+}
+
 // parseExpression checks whether we have a parsing function associated
 // with p.curToken.Type in the prefix position.
 // If we do, it calls this parsing function, if not, it returns nil.
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
+		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 
@@ -208,66 +217,15 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 	return lit
 }
 
-// function parseProgram() {
-// 	program = newProgramASTNode()
-// 	advanceTokens() --> get more tokens by moving the peek and curr
-// 	for (currentToken() != EOF_TOKEN) {
-// 		statement = null
-// 		if (currentToken() == LET_TOKEN) {
-// 		statement = parseLetStatement()
-// 		} else if (currentToken() == RETURN_TOKEN) {
-// 		statement = parseReturnStatement()
-// 		} else if (currentToken() == IF_TOKEN) {
-// 		statement = parseIfStatement()
-// 		}
-// 		if (statement != null) {
-// 		program.Statements.push(statement)
-// 		}
-// 		advanceTokens()
-// 	}
-// 	return program
-// }
+func (p *Parser) parsePrefixExpression() ast.Expression {
+	expression := &ast.PrefixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+	}
 
-// function parseLetStatement() {
-// 	advanceTokens()
-// 	identifier = parseIdentifier()
-// 	advanceTokens()
-// 	if currentToken() != EQUAL_TOKEN {
-// 		parseError("no equal sign!")
-// 		return null
-// 	}
-// 	advanceTokens()
-// 	value = parseExpression()
-// 	variableStatement = newVariableStatementASTNode()
-// 	variableStatement.identifier = identifier
-// 	variableStatement.value = value
-// 	return variableStatement
-// }
+	p.nextToken()
 
-// function parseIdentifier() {
-// 	identifier = newIdentifierASTNode()
-// 	identifier.token = currentToken()
-// 	return identifier
-// }
+	expression.Right = p.parseExpression(PREFIX)
 
-// function parseExpression() {
-// 	if (currentToken() == INTEGER_TOKEN) {
-// 		if (nextToken() == PLUS_TOKEN)
-// 		{
-// 			return parseOperatorExpression()
-// 		}else if (nextToken() == SEMICOLON_TOKEN) {
-// 			return parseIntegerLiteral()
-// 		}
-// 	} else if (currentToken() == LEFT_PAREN) {
-// 		return parseGroupedExpression()
-// 	}
-// 	// [...]
-// }
-// function parseOperatorExpression() {
-// 	operatorExpression = newOperatorExpression()
-// 	operatorExpression.left = parseIntegerLiteral()
-// 	operatorExpression.operator = currentToken()
-// 	operatorExpression.right = parseExpression()
-// 	return operatorExpression()
-// }
-// 	// [...]
+	return expression
+}
