@@ -161,6 +161,7 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 // with p.curToken.Type in the prefix position.
 // If we do, it calls this parsing function, if not, it returns nil.
 func (p *Parser) parseExpression(precedence int) ast.Expression {
+	// check whether there is a prefixParseFn associated with the current p.curToken.Type
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
