@@ -51,7 +51,7 @@ type Parser struct {
 	// function associated with curToken.Type.
 
 	prefixParseFns map[token.TokenType]prefixParseFn
-	infixParserFns map[token.TokenType]infixParserFn
+	infixParseFns map[token.TokenType]infixParserFn
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -72,9 +72,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.FALSE, p.parseBoolean)
+	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 
 	// Register one infix parse function for all of our infix operators.
-	p.infixParserFns = make(map[token.TokenType]infixParserFn)
+	p.infixParseFns = make(map[token.TokenType]infixParserFn)
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
@@ -123,7 +124,7 @@ func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
 }
 
 func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParserFn) {
-	p.infixParserFns[tokenType] = fn
+	p.infixParseFns[tokenType] = fn
 }
 
 func (p *Parser) curPrecedence() int {
@@ -173,7 +174,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := prefix()
 
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-		infix := p.infixParserFns[p.peekToken.Type]
+		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
 		}
@@ -301,4 +302,13 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
 func (p *Parser) parseBoolean() ast.Expression {
 	return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+}
+
+func (p *Parser) parseGroupedExpression() ast.Expression {
+	p.nextToken()
+	exp := p.parseExpression(LOWEST)
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+	return exp
 }
